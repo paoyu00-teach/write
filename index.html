@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>國寫作文評鑑與輔導工具</title>
-    <!-- 載入 Tailwind CSS，用於快速排版與設計 -->
+    <!-- 載入 Tailwind CSS，用於快速排版與設計 (警告：正式環境建議使用編譯版本) -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- 載入 Lucide Icons，用於介面圖標 -->
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -130,8 +130,8 @@
     <div id="messageModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
         <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
             <div class="mt-3 text-center">
-                <div id="modalIcon" class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100">
-                    <i data-lucide="alert-triangle" class="w-6 h-6 text-red-600"></i>
+                <div id="modalIcon" class="mx-auto flex items-center justify-center h-12 w-12 rounded-full">
+                    <!-- 圖標將由 JS 動態生成 -->
                 </div>
                 <h3 id="modalTitle" class="text-lg leading-6 font-medium text-gray-900 mt-2">提示</h3>
                 <div class="mt-2 px-7 py-3">
@@ -171,6 +171,7 @@
                     }
                     if (!response.ok) {
                         const errorData = await response.json();
+                        // 修正: 在錯誤訊息中包含 status 和 message
                         throw new Error(`API Request Failed: ${response.status} - ${errorData.error.message}`);
                     }
                     return response;
@@ -182,28 +183,35 @@
             }
         }
 
-        // --- 輔助函數：顯示 Modal 訊息（取代 alert()） ---
+        // --- 輔助函數：顯示 Modal 訊息（取代 alert()），已修正 Lucide 圖標調用錯誤 ---
         function showModal(title, message, isError = true) {
             const modal = document.getElementById('messageModal');
             document.getElementById('modalTitle').textContent = title;
             document.getElementById('modalMessage').textContent = message;
             
             const iconContainer = document.getElementById('modalIcon');
-            iconContainer.innerHTML = '';
+            iconContainer.innerHTML = ''; // 清空舊圖標
             
+            let iconSvg;
             if (isError) {
                 iconContainer.classList.add('bg-red-100');
                 iconContainer.classList.remove('bg-green-100');
-                const icon = lucide.createIcons()['alert-triangle'];
-                icon.classList.add('text-red-600');
-                iconContainer.appendChild(icon);
+                // 檢查 Lucide Icons 是否已加載
+                if (typeof lucide !== 'undefined' && lucide.icons['alert-triangle']) {
+                    iconSvg = lucide.icons['alert-triangle'].toSvg({ class: 'w-6 h-6 text-red-600' });
+                } else {
+                    iconSvg = `<span class="w-6 h-6 text-red-600">!</span>`; // 備用文字
+                }
             } else {
                 iconContainer.classList.add('bg-green-100');
                 iconContainer.classList.remove('bg-red-100');
-                const icon = lucide.createIcons()['check-circle'];
-                icon.classList.add('text-green-600');
-                iconContainer.appendChild(icon);
+                if (typeof lucide !== 'undefined' && lucide.icons['check-circle']) {
+                    iconSvg = lucide.icons['check-circle'].toSvg({ class: 'w-6 h-6 text-green-600' });
+                } else {
+                    iconSvg = `<span class="w-6 h-6 text-green-600">✓</span>`; // 備用文字
+                }
             }
+            iconContainer.innerHTML = iconSvg; // 插入圖標 SVG 或備用文字
 
             modal.classList.remove('hidden');
         }
@@ -370,6 +378,7 @@
             
             const systemInstruction = generateSystemInstruction('critique');
             
+            // 修正：移除末尾多餘的 '}'，改為正確的陣列閉合符號 ']'
             const contentParts = [ ...imageParts, { text: userQuery } ];
 
 
@@ -403,7 +412,8 @@
 
             } catch (error) {
                 console.error("Fetch error:", error);
-                showModal('連線錯誤', `無法連接到 AI 服務：${error.message}。請檢查 API Key 是否正確且網頁是否通過本地伺服器運行。`, true);
+                // 修正: 顯示從 fetchWithExponentialBackoff 拋出的詳細錯誤訊息
+                showModal('連線錯誤', `無法連接到 AI 服務：${error.message}。這通常是 API Key 限制或網路問題造成。`, true);
             } finally {
                 document.getElementById('loadingIndicator').classList.add('hidden');
                 document.getElementById('loadingIndicator').querySelector('p').textContent = 'AI 閱卷委員正在為您的文章進行深度分析...';
@@ -472,7 +482,8 @@
 
             } catch (error) {
                 console.error("Revision fetch error:", error);
-                showModal('連線錯誤', `生成修正文章時發生錯誤：${error.message}。請檢查 API Key 是否正確且網頁是否通過本地伺服器運行。`, true);
+                // 修正: 顯示從 fetchWithExponentialBackoff 拋出的詳細錯誤訊息
+                showModal('連線錯誤', `生成修正文章時發生錯誤：${error.message}。這通常是 API Key 限制或網路問題造成。`, true);
             } finally {
                 document.getElementById('revisionLoading').classList.add('hidden');
                 document.getElementById('requestRevisionBtn').classList.remove('hidden');
@@ -501,7 +512,7 @@
             
             // 將連續的 <li> 包裹在 <ul> 標籤中
             const listRegex = /(?:^|\n)(<li>.*?<\/li>(?:<li>.*?<\/li>)*)/gs;
-            htmlText = htmlText.replace(listRegex, '\n<ul>$1</ul>\n');
+            htmlText = htmlText.replace(listRegex, '\n<ul class="list-disc list-inside space-y-1 mb-3 ml-4">$1</ul>\n');
 
 
             // 處理段落
