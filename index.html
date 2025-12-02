@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>國寫作文評鑑與輔導工具</title>
+    <!-- 載入 Tailwind CSS，用於快速排版與設計 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 載入 Lucide Icons，用於介面圖標 -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        /* 使用 Inter 字體作為主要字體 */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        /* 載入台灣常用中文字體，確保顯示正常 */
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;700&display=swap');
+        
+        body {
+            font-family: 'Inter', 'Noto Sans TC', sans-serif;
+            background-color: #f8fafc; /* 淺藍灰背景 */
+        }
+        /* 專門為輸入區調整字體，確保中文輸入友好 */
+        #essayContent {
+            font-family: 'Noto Sans TC', 'Inter', sans-serif;
+        }
+        /* 評分等級的顏色定義 */
+        .score-a-plus { background-color: #10b981; } /* 綠色 (頂標) */
+        .score-a { background-color: #3b82f6; }     /* 藍色 */
+        .score-b { background-color: #f59e0b; }     /* 黃色/橘色 */
+        .score-c { background-color: #ef4444; }     /* 紅色 */
+        /* 讓 Markdown 輸出更美觀，避免段落間距過大 */
+        .prose p {
+            margin-bottom: 0.75rem !important;
+        }
+    </style>
+</head>
+<body class="p-4 sm:p-8">
+
+    <div id="app" class="max-w-4xl mx-auto bg-white shadow-2xl rounded-xl p-6 sm:p-10 border-t-8 border-indigo-600">
+
+        <header class="mb-8 text-center">
+            <div class="inline-flex items-center space-x-2 text-indigo-600">
+                <i data-lucide="feather" class="w-8 h-8"></i>
+                <h1 class="text-3xl font-extrabold tracking-tight text-gray-900">國寫作文一站式輔導</h1>
+            </div>
+            <p class="mt-2 text-lg text-gray-500">輸入您的作文，獲得專業評分、具體修正與高分範文建議。</p>
+        </header>
+
+        <!-- 輸入介面 -->
+        <div id="inputForm" class="space-y-6">
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="col-span-1">
+                    <label for="essayType" class="block text-sm font-medium text-gray-700">題目類型</label>
+                    <select id="essayType" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md shadow-sm">
+                        <option value="情意題">情意題 (乙卷)</option>
+                        <option value="知性題">知性題 (甲卷)</option>
+                    </select>
+                </div>
+                <div class="col-span-2">
+                    <label for="essayTitle" class="block text-sm font-medium text-gray-700">完整題目/主題描述</label>
+                    <input type="text" id="essayTitle" placeholder="請輸入作文的完整題目或核心主題" class="mt-1 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500" required>
+                </div>
+            </div>
+
+            <!-- 圖片上傳區塊 (支援拍照上傳) -->
+            <div class="p-4 border border-gray-300 rounded-xl bg-gray-50 shadow-inner">
+                <label class="block text-sm font-medium text-gray-700 mb-2">上傳題目/作文照片 (選填，最多 3 張)</label>
+                <input type="file" id="imageUpload" accept="image/png, image/jpeg" multiple class="hidden" onchange="previewImages(event)">
+                <div class="flex space-x-3">
+                    <button onclick="document.getElementById('imageUpload').click()" type="button" class="flex-grow inline-flex justify-center items-center px-4 py-2 border border-dashed border-indigo-400 text-sm font-medium rounded-md text-indigo-700 bg-indigo-50 hover:bg-indigo-100 transition duration-150 ease-in-out">
+                        <i data-lucide="camera" class="w-4 h-4 mr-2"></i>
+                        點擊上傳照片
+                    </button>
+                    <button onclick="removeImages()" id="clearImageBtn" type="button" class="w-24 inline-flex justify-center items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-500 hover:bg-red-600 transition duration-150 ease-in-out hidden">
+                        <i data-lucide="x" class="w-4 h-4"></i>
+                    </button>
+                </div>
+                <div id="imagePreviewContainer" class="mt-3 flex flex-wrap gap-3">
+                    <!-- 圖片預覽會在這裡顯示 -->
+                </div>
+            </div>
+
+            <div>
+                <label for="essayContent" class="block text-sm font-medium text-gray-700">您的作文內容 (或寫作中的內容)</label>
+                <textarea id="essayContent" rows="15" placeholder="您可以貼上已完成的文章，或貼上寫到一半的內容並在下方說明卡點。" class="mt-1 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md p-4 focus:ring-indigo-500 focus:border-indigo-500 resize-y" required></textarea>
+            </div>
+
+            <div>
+                <label for="helpInstruction" class="block text-sm font-medium text-gray-700">寫作指示/卡點說明 (選填)</label>
+                <textarea id="helpInstruction" rows="3" placeholder="如果您還沒下筆，請寫『請指導我如何寫作』。如果寫到一半卡住，請說明您在哪一段卡住，以及下一步想寫什麼。" class="mt-1 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500 resize-y"></textarea>
+            </div>
+
+            <button onclick="processEssay()" id="submitBtn" class="w-full inline-flex justify-center items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-lg text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition duration-150 ease-in-out">
+                <i data-lucide="send" class="w-5 h-5 mr-2"></i>
+                開始評鑑與輔導
+            </button>
+        </div>
+
+        <!-- 輸出介面 -->
+        <div id="outputContainer" class="hidden">
+            <div id="loadingIndicator" class="text-center py-10">
+                <div class="animate-spin inline-block w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full"></div>
+                <p class="mt-4 text-indigo-600 font-medium">AI 閱卷委員正在為您的文章進行深度分析...</p>
+            </div>
+
+            <div id="resultsDisplay" class="space-y-8 p-6 bg-gray-50 rounded-lg shadow-inner border border-gray-200">
+                <!-- 結果將由 JS 填充 -->
+            </div>
+
+            <!-- 修正範文請求區 -->
+            <div id="revisionRequest" class="mt-8 pt-6 border-t border-gray-200 text-center hidden">
+                <button onclick="requestRevisedEssay()" id="requestRevisionBtn" class="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-full shadow-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition duration-150 ease-in-out">
+                    <i data-lucide="sparkles" class="w-5 h-5 mr-2"></i>
+                    產生一篇修正後的高分示範文章
+                </button>
+                <p id="revisionLoading" class="hidden mt-4 text-green-600 font-medium">示範文章生成中，請稍候...</p>
+                <div id="revisedArticleOutput" class="mt-4 p-4 bg-white rounded-lg border border-green-300 shadow-md whitespace-pre-wrap text-left hidden"></div>
+            </div>
+
+            <div class="mt-8 pt-4 border-t border-gray-200">
+                <button onclick="resetForm()" class="text-indigo-600 hover:text-indigo-800 font-medium transition duration-150 ease-in-out">
+                    <i data-lucide="rotate-ccw" class="w-4 h-4 inline-block mr-1"></i>
+                    重新提交一篇作文
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 錯誤/提示訊息 Modal -->
+    <div id="messageModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div class="mt-3 text-center">
+                <div id="modalIcon" class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100">
+                    <i data-lucide="alert-triangle" class="w-6 h-6 text-red-600"></i>
+                </div>
+                <h3 id="modalTitle" class="text-lg leading-6 font-medium text-gray-900 mt-2">提示</h3>
+                <div class="mt-2 px-7 py-3">
+                    <p id="modalMessage" class="text-sm text-gray-500"></p>
+                </div>
+                <div class="items-center px-4 py-3">
+                    <button id="closeModalBtn" class="px-4 py-2 bg-indigo-600 text-white text-base font-medium rounded-md w-full shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                        確定
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 初始化 Lucide Icons
+        lucide.createIcons();
+
+        // ************************************************
+        // *** 您的 Gemini API 金鑰已嵌入於此處 ***
+        // ************************************************
+        const apiKey = "AIzaSyBmrzGuNKTaLaea_ScoEqF35cKy3QLs_48"; 
+        const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+
+        let lastUserPrompt = ''; // 用於儲存最後一次向 AI 發送的完整提示（包含作文內容等），以便於後續請求修正範文時引用。
+
+        // --- 輔助函數：API 錯誤處理與重試 (含指數退避) ---
+        async function fetchWithExponentialBackoff(url, options, maxRetries = 5) {
+            for (let i = 0; i < maxRetries; i++) {
+                try {
+                    const response = await fetch(url, options);
+                    if (response.status === 429) {
+                        // Too many requests - implement backoff
+                        const delay = Math.pow(2, i) * 1000 + Math.random() * 1000;
+                        await new Promise(resolve => setTimeout(resolve, delay));
+                        continue; 
+                    }
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(`API Request Failed: ${response.status} - ${errorData.error.message}`);
+                    }
+                    return response;
+                } catch (error) {
+                    if (i === maxRetries - 1) {
+                        throw error;
+                    }
+                }
+            }
+        }
+
+        // --- 輔助函數：顯示 Modal 訊息（取代 alert()） ---
+        function showModal(title, message, isError = true) {
+            const modal = document.getElementById('messageModal');
+            document.getElementById('modalTitle').textContent = title;
+            document.getElementById('modalMessage').textContent = message;
+            
+            const iconContainer = document.getElementById('modalIcon');
+            iconContainer.innerHTML = '';
+            
+            if (isError) {
+                iconContainer.classList.add('bg-red-100');
+                iconContainer.classList.remove('bg-green-100');
+                const icon = lucide.createIcons()['alert-triangle'];
+                icon.classList.add('text-red-600');
+                iconContainer.appendChild(icon);
+            } else {
+                iconContainer.classList.add('bg-green-100');
+                iconContainer.classList.remove('bg-red-100');
+                const icon = lucide.createIcons()['check-circle'];
+                icon.classList.add('text-green-600');
+                iconContainer.appendChild(icon);
+            }
+
+            modal.classList.remove('hidden');
+        }
+
+        document.getElementById('closeModalBtn').addEventListener('click', () => {
+            document.getElementById('messageModal').classList.add('hidden');
+        });
+
+        // --- 圖片處理相關函數 ---
+        function previewImages(event) {
+            const container = document.getElementById('imagePreviewContainer');
+            const clearBtn = document.getElementById('clearImageBtn');
+            container.innerHTML = '';
+            const files = event.target.files;
+
+            if (files.length === 0) {
+                clearBtn.classList.add('hidden');
+                return;
+            }
+
+            if (files.length > 3) {
+                showModal('圖片數量過多', '為了確保 AI 處理速度與準確性，建議最多上傳 3 張圖片。請重新選擇。', true);
+                event.target.value = null; // Clear the input
+                clearBtn.classList.add('hidden');
+                return;
+            }
+            
+            clearBtn.classList.remove('hidden');
+
+            Array.from(files).forEach((file) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const imgWrapper = document.createElement('div');
+                    imgWrapper.className = 'w-24 h-24 rounded-lg overflow-hidden border-2 border-indigo-400 shadow-md';
+                    imgWrapper.innerHTML = `<img src="${e.target.result}" alt="Uploaded image preview" class="w-full h-full object-cover">`;
+                    container.appendChild(imgWrapper);
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+        
+        function removeImages() {
+            document.getElementById('imageUpload').value = null;
+            document.getElementById('imagePreviewContainer').innerHTML = '';
+            document.getElementById('clearImageBtn').classList.add('hidden');
+            showModal('圖片已清除', '已清除所有上傳的圖片。', false);
+        }
+
+        function getImagesAsParts(files) {
+            return new Promise((resolve, reject) => {
+                if (files.length === 0) {
+                    return resolve([]);
+                }
+
+                const parts = [];
+                let filesProcessed = 0;
+
+                Array.from(files).forEach(file => {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        const base64Data = e.target.result.split(',')[1];
+                        parts.push({
+                            inlineData: {
+                                mimeType: file.type,
+                                data: base64Data,
+                            }
+                        });
+                        filesProcessed++;
+                        if (filesProcessed === files.length) {
+                            resolve(parts);
+                        }
+                    };
+                    reader.onerror = (error) => {
+                        reject(error);
+                    };
+                    reader.readAsDataURL(file);
+                });
+            });
+        }
+
+        // --- 核心邏輯：生成指令、處理作文與請求修正後的文章 ---
+        function generateSystemInstruction(mode) {
+            const rubricUrl = 'https://www.ceec.edu.tw/xmdoc/cont?xsmsid=0J071624926253508127&qbranch=0J071649263907893079&sid=0P086598180181412833';
+            let instruction = `
+                請擔任一位資深學測國寫閱卷委員、作文教學專家與寫作輔導教練。您的任務是為考生提供寫作前指導、寫作中救援、以及寫作後評分與優化的一站式服務。
+                【評分依據參考】 您的評分標準應參考歷屆試題與大考中心公布的評分原則，網址如下：${rubricUrl}
+                請注意，考生可能透過圖片上傳了作文題目或手寫文章。請務必分析所有輸入的文字和圖片資訊。
+                您必須依據考生的輸入內容，執行以下四個階段的任務：
+
+                #### 階段零：寫作輔導與救援（當考生尚未完成文章時執行）
+                1. 若考生輸入「題目但無內容」：請立即轉換為寫作教練，指導考生進行審題、立意、和擬定結構。
+                2. 若考生輸入「部分內容並指出卡點」：請立即提供寫作救援，分析已完成的內容，並針對卡點提供邏輯銜接、情感遞進或素材深化的具體建議，幫助考生順利接續。
+                3. 若考生已完成文章，則直接跳過此階段，進入階段一。
+            `;
+
+            if (mode === 'revision') {
+                return instruction + `
+                    #### 階段三：生成修正後的範文
+                    請根據考生提供的原文的主旨、基本素材與風格，寫出一篇已應用所有修正建議、達到高分等級的完整修正後文章。請將文章內容直接輸出。
+                `;
+            }
+
+            return instruction + `
+                #### 階段一：學測評分與專業評語
+                1. 依據國寫標準判斷該文屬於 A+、A、B+、B, C+、C 等級中的哪一級，並給予具體的原始得分建議（滿分 25 分）。
+                2. 撰寫一份包含「優點分析」與「主要問題」的專業評語。請使用 Markdown 標題分隔這兩個部分。
+                3. **[評分等級：<等級>] (建議得分：<分數>)** 必須出現在所有輸出的開頭，以便前端程式碼擷取。例如：[評分等級：A] (建議得分：20)
+
+                #### 階段二：具體修正建議
+                1. 針對階段一指出的「主要問題」，分項（如：內容立意、結構組織、語言表達）提供具體、可操作的修正建議。
+                2. 針對文章中最關鍵的 1-2 個段落，提供簡短的示範句或思路引導。
+
+                #### 階段三：互動與後續處理
+                1. **必須**在完成所有評分與修正建議後，以對話的方式，詢問考生：
+                   「您好，根據以上的評分與建議，您是否需要我根據您的原文，為您寫一篇『修正後的示範文章』？(此範文將會體現所有修正建議，旨在提供具體參考。)」
+                2. 請將所有評分、建議和詢問內容，以清晰的Markdown格式輸出在單一回覆中。
+            `;
+        }
+        
+        async function processEssay() {
+            const essayType = document.getElementById('essayType').value;
+            const essayTitle = document.getElementById('essayTitle').value.trim();
+            const essayContent = document.getElementById('essayContent').value.trim();
+            const helpInstruction = document.getElementById('helpInstruction').value.trim();
+            
+            document.getElementById('inputForm').classList.add('hidden');
+            document.getElementById('outputContainer').classList.remove('hidden');
+            document.getElementById('loadingIndicator').classList.remove('hidden');
+            document.getElementById('resultsDisplay').innerHTML = '';
+            document.getElementById('revisionRequest').classList.add('hidden'); // 預設隱藏修正請求
+
+            const imageFiles = document.getElementById('imageUpload').files;
+            let imageParts = [];
+            if (imageFiles.length > 0) {
+                document.getElementById('loadingIndicator').querySelector('p').textContent = 'AI 閱卷委員正在為您的文章進行深度分析，同時處理圖片資料...';
+                try {
+                    imageParts = await getImagesAsParts(imageFiles);
+                } catch (e) {
+                    showModal('圖片處理錯誤', '無法讀取或轉換圖片檔案，請檢查圖片格式。', true);
+                    document.getElementById('loadingIndicator').classList.add('hidden');
+                    document.getElementById('inputForm').classList.remove('hidden');
+                    return;
+                }
+            }
+            
+            if (!essayTitle && imageFiles.length === 0 && !essayContent) {
+                showModal('輸入錯誤', '請至少提供「題目描述」或「作文內容」或「作文圖片」。', true);
+                document.getElementById('loadingIndicator').classList.add('hidden');
+                document.getElementById('inputForm').classList.remove('hidden');
+                return;
+            }
+
+            let userQuery = `作文類型：${essayType}\n`;
+            userQuery += `完整題目：${essayTitle || '【題目已透過圖片提供或無明確題目】'}\n`;
+            userQuery += `考生作文內容：\n---\n${essayContent || '【無作文內容，要求寫作指導或已透過圖片提供】'}\n---\n`;
+
+            if (helpInstruction) {
+                userQuery += `考生額外指示/卡點說明：${helpInstruction}\n`;
+            } else if (!essayContent) {
+                 userQuery += `考生額外指示/卡點說明：請指導我如何寫作\n`;
+            }
+
+            lastUserPrompt = userQuery;
+            
+            const systemInstruction = generateSystemInstruction('critique');
+            
+            const contentParts = [ ...imageParts, { text: userQuery } ];
+
+
+            if (!apiKey) {
+                showModal('API 金鑰錯誤', '無法執行 AI 功能：apiKey 為空。請在程式碼中填入您有效的 Gemini API Key，並透過本地伺服器運行檔案。', true);
+                document.getElementById('loadingIndicator').classList.add('hidden');
+                document.getElementById('inputForm').classList.remove('hidden');
+                return;
+            }
+
+
+            try {
+                const response = await fetchWithExponentialBackoff(API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ parts: contentParts }],
+                        systemInstruction: { parts: [{ text: systemInstruction }] },
+                    })
+                });
+                
+                const result = await response.json();
+                const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
+
+                if (text) {
+                    document.getElementById('resultsDisplay').innerHTML = formatMarkdown(text);
+                    document.getElementById('revisionRequest').classList.remove('hidden');
+                } else {
+                    showModal('API 回應錯誤', '未能從 AI 獲取有效的回應，請檢查輸入內容是否過於複雜。', true);
+                }
+
+            } catch (error) {
+                console.error("Fetch error:", error);
+                showModal('連線錯誤', `無法連接到 AI 服務：${error.message}。請檢查 API Key 是否正確且網頁是否通過本地伺服器運行。`, true);
+            } finally {
+                document.getElementById('loadingIndicator').classList.add('hidden');
+                document.getElementById('loadingIndicator').querySelector('p').textContent = 'AI 閱卷委員正在為您的文章進行深度分析...';
+                lucide.createIcons();
+            }
+        }
+        
+        async function requestRevisedEssay() {
+            document.getElementById('requestRevisionBtn').classList.add('hidden');
+            document.getElementById('revisionLoading').classList.remove('hidden');
+            document.getElementById('revisionLoading').textContent = '示範文章生成中，請稍候...';
+            
+            const imageFiles = document.getElementById('imageUpload').files;
+            let imageParts = [];
+            
+            if (imageFiles.length > 0) {
+                 document.getElementById('revisionLoading').textContent = '示範文章生成中，同時處理原始圖片資料，請稍候...';
+                try {
+                    imageParts = await getImagesAsParts(imageFiles);
+                } catch (e) {
+                    showModal('圖片處理錯誤', '無法讀取或轉換圖片檔案，請檢查圖片格式。', true);
+                    document.getElementById('revisionLoading').classList.add('hidden');
+                    document.getElementById('requestRevisionBtn').classList.remove('hidden');
+                    return;
+                }
+            }
+
+            const revisionPrompt = `請根據我上一次提交的作文內容（${lastUserPrompt}），為我寫一篇經過優化、已應用所有修正建議、達到高分等級的完整修正後示範文章。請將文章內容直接輸出，不需其他評語或說明。`;
+            const systemInstruction = generateSystemInstruction('revision');
+
+            const contentParts = [ ...imageParts, { text: revisionPrompt } ];
+
+            if (!apiKey) {
+                showModal('API 金鑰錯誤', '無法執行 AI 功能：apiKey 為空。請在程式碼中填入您有效的 Gemini API Key，並透過本地伺服器運行檔案。', true);
+                document.getElementById('revisionLoading').classList.add('hidden');
+                document.getElementById('requestRevisionBtn').classList.remove('hidden');
+                return;
+            }
+
+            try {
+                const response = await fetchWithExponentialBackoff(API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ parts: contentParts }],
+                        systemInstruction: { parts: [{ text: systemInstruction }] },
+                    })
+                });
+                
+                const result = await response.json();
+                const revisedText = result.candidates?.[0]?.content?.parts?.[0]?.text;
+
+                if (revisedText) {
+                    const outputElement = document.getElementById('revisedArticleOutput');
+                    outputElement.innerHTML = `
+                        <h3 class="text-xl font-bold mb-3 text-green-700">✅ 修正後高分示範文章</h3>
+                        <div class="prose max-w-none p-4 bg-green-50 rounded-md border border-green-200">
+                            ${formatMarkdown(revisedText)}
+                        </div>
+                    `;
+                    outputElement.classList.remove('hidden');
+                    showModal('生成成功', '高分修正範文已生成，請參考輸出區塊！', false);
+                } else {
+                    showModal('生成失敗', '未能成功生成修正後的文章，請重試。', true);
+                }
+
+            } catch (error) {
+                console.error("Revision fetch error:", error);
+                showModal('連線錯誤', `生成修正文章時發生錯誤：${error.message}。請檢查 API Key 是否正確且網頁是否通過本地伺服器運行。`, true);
+            } finally {
+                document.getElementById('revisionLoading').classList.add('hidden');
+                document.getElementById('requestRevisionBtn').classList.remove('hidden');
+            }
+        }
+
+        // --- 輔助函數：將 Markdown 轉換為 HTML ---
+        function formatMarkdown(markdownText) {
+            let htmlText = markdownText;
+
+            // 處理標題
+            htmlText = htmlText.replace(/^###\s*(.*)$/gm, '<h3 class="text-xl font-semibold mt-4 mb-2 text-indigo-700 border-b border-indigo-200 pb-1">$1</h3>');
+            htmlText = htmlText.replace(/^##\s*(.*)$/gm, '<h2 class="text-2xl font-bold mt-6 mb-3 text-indigo-800">$1</h2>');
+
+            // 處理粗體
+            htmlText = htmlText.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+
+            // 處理列表
+            // 將 Markdown 列表項轉換為 HTML <li>
+            htmlText = htmlText.replace(/^\*\s*(.*)$/gm, '<li>$1</li>');
+            htmlText = htmlText.replace(/^(\d+)\.\s*(.*)$/gm, '<li>$2</li>');
+            
+            // 由於 LLM 輸出的 Markdown 列表可能沒有換行，這裡嘗試修復連續的 <li>
+            htmlText = htmlText.replace(/<\/li>\n<li>/g, '</li><li>');
+            htmlText = htmlText.replace(/<\/li>\n/g, '</li>').replace(/\n<li>/g, '<li>');
+            
+            // 將連續的 <li> 包裹在 <ul> 標籤中
+            const listRegex = /(?:^|\n)(<li>.*?<\/li>(?:<li>.*?<\/li>)*)/gs;
+            htmlText = htmlText.replace(listRegex, '\n<ul>$1</ul>\n');
+
+
+            // 處理段落
+            htmlText = htmlText.split('\n\n').map(p => {
+                // 檢查是否已經是標題或列表
+                if (p.startsWith('<h') || p.startsWith('<ul') || p.startsWith('<div')) {
+                    return p;
+                }
+                if (p.trim() === '') return '';
+                // 將段落內換行符轉換為 <br>
+                const paragraphContent = p.trim().replace(/\n/g, '<br>');
+                return `<p class="mb-3 leading-relaxed text-gray-700">${paragraphContent}</p>`;
+            }).join('');
+            
+            // 處理評分等級
+            const scoreRegex = /\[評分等級：(A\+|A|B\+|B|C\+|C|待輔導)\]\s*\(建議得分：(\d+)\)/;
+            const match = htmlText.match(scoreRegex);
+
+            if (match) {
+                const grade = match[1];
+                const score = match[2];
+                let colorClass = 'score-c';
+                if (grade.startsWith('A')) colorClass = grade === 'A+' ? 'score-a-plus' : 'score-a';
+                else if (grade.startsWith('B')) colorClass = 'score-b';
+                
+                const scoreHtml = `
+                    <div class="flex items-center justify-center p-4 rounded-lg text-white font-bold text-lg shadow-md ${colorClass} transition duration-300 transform hover:scale-105">
+                        <i data-lucide="award" class="w-6 h-6 mr-2"></i>
+                        <span>最終評等：${grade}</span>
+                        <span class="ml-4 px-3 py-1 bg-white bg-opacity-30 rounded-full">建議得分：${score} / 25</span>
+                    </div>
+                `;
+                // 將評分資訊插入到最前面，並從原文本中移除
+                htmlText = scoreHtml + htmlText.replace(scoreRegex, '');
+            }
+
+            // 清理可能產生的空 ul 標籤
+            htmlText = htmlText.replace(/<ul>\s*<\/ul>/g, '');
+            
+            // 重新初始化 Lucide Icons 以渲染新內容中的圖標
+            setTimeout(() => lucide.createIcons(), 0);
+            return htmlText;
+        }
+
+
+        function resetForm() {
+            document.getElementById('inputForm').classList.remove('hidden');
+            document.getElementById('outputContainer').classList.add('hidden');
+            document.getElementById('resultsDisplay').innerHTML = '';
+            document.getElementById('revisedArticleOutput').classList.add('hidden');
+            document.getElementById('requestRevisionBtn').classList.remove('hidden');
+            document.getElementById('revisionRequest').classList.add('hidden');
+            removeImages(); 
+        }
+
+        window.onload = () => {
+             lucide.createIcons();
+        };
+
+    </script>
+
+</body>
+</html>
